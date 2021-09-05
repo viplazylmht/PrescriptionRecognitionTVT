@@ -1,0 +1,15 @@
+gunicorn
+psycopg2
+gdown
+click
+flask
+jinja2
+markupsafe
+itsdangerous
+flask_cors
+werkzeug
+torchvision
+torch
+pandas
+fuzzywuzzy
+PIL

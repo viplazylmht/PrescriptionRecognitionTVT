@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Image Captioning Inference - Settings</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
+
+    <link rel="stylesheet" href="../static/frontend/styles.css">
+</head>
+
+<body>
+    <script>
+        const say_something = async () => {
+            const inputText = document.getElementById('upload-text');
+            const mess = document.getElementById('message');
+
+            if (inputText.value) {
+
+                const data = new FormData();
+                data.append('text', inputText.value);
+
+                const processedImage = await fetch("/cleanmee",
+                    {
+                        method: 'POST',
+                        body: data
+                    }).then(response => {
+                        return response.json();
+                    }).then(result => {
+
+                        console.log(result);
+
+                        mess.textContent = result.message;
+
+                        return result;
+                    });
+            }
+            else {
+                mess.textContent = "ERROR: please fillin the input first!";
+            }
+        }
+    </script>
+    <div class="container py-5">
+
+        <!-- For demo purpose -->
+        <header class="text-white text-center">
+            <h1 class="display-4">Image Captioning Inference</h1>
+            <h1 class="display-4">Settings</h1>
+            <p class="lead mb-0">Haha you can't do anything from here. But... do you wanna gime something?</p>
+
+        </header>
+
+
+        <div class="row py-4">
+            <div class="col-lg-6 mx-auto">
+
+                <!-- Upload image input-->
+                <div class="input-group mb-3 px-2 py-2 rounded-pill bg-white shadow-sm">
+                    <!-- <label id="upload-label" for="upload" class="font-weight-light text-muted">Text me babe...</label> -->
+                    <!-- <input id="upload"> -->
+                    <input id="upload-text" placeholder="Text me babe..." autocomplete="off" type="text"
+                        class="font-weight-light text-muted">
+                </div>
+
+                <div class="input-group-append justify-content-center">
+                    <button id="send-button" class="text-center btn  font-weight-bold rounded-pill bg-white"
+                        onclick="say_something();"><i class="fa fa-share-square mr-2 text-muted"></i>SEND</button>
+                </div>
+
+                <!-- Uploaded image area-->
+                <p class="font-italic text-white text-center" id="message"></p>
+                <br/><br/><p class="text-black text-center">Powered by Group 11 - ML | <a class="link-warning" target="_blank" rel="noopener noreferrer" href="https://github.com/viplazylmht/image-captioning-inference">Source Code</a> | <a class="link-warning" target="_blank" rel="noopener noreferrer" href="https://arxiv.org/abs/1609.06647">Origin paper</a></a></p>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
