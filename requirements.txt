@@ -16,4 +16,3 @@ Pillow
 opencv-python-headless==4.2.0.32
 scikit-image
 pytesseract
-tesseract-ocr
