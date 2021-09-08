@@ -1,3 +1,4 @@
+-f https://download.pytorch.org/whl/torch_stable.html
 gunicorn
 psycopg2
 gdown
@@ -8,11 +9,13 @@ markupsafe
 itsdangerous
 flask_cors
 werkzeug
-torch==1.6.0
-torchvision==0.7.0
+torch==1.9.0+cpu
+torchvision==0.10.0+cpu
+torchaudio==0.9.0
 pandas
 fuzzywuzzy
 Pillow
 opencv-python-headless==4.2.0.32
 scikit-image
 pytesseract
+python-Levenshtein
