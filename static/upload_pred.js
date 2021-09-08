@@ -32,6 +32,9 @@ const reload_result = async (job_id) => {
             else if (result.status === 'queued') {
                 mess.textContent = 'Job quequed';
             }
+            else if (result.status === 'handle_output') {
+                mess.textContent = result.message;
+            }
             else {
                 mess.textContent = 'Job is processing. Please wait...';
             }

@@ -25,12 +25,39 @@ class OCRThread (threading.Thread):
         self.threadID = threadID
         self.name = name
         self.q = queue.Queue()
+        self.job_id = None
+
+        self.device = None
+        self.detector = None
+
+        self.DETECTOR_FILENAME = 'im2pres/data/craft_mlt_25k.pth'
+
+        self.imgH = 64
+        self.input_channel = 1
+        self.output_channel = 512
+        self.hidden_size = 512
+
+        self.medicinePath =  'im2pres/data/main_dict/high_res_low_res.csv'
+
+        self.df = None
+        self.medicineClassifierData, self.medicineCorrectionData = None, None
 
         self.results = {}
 
     def updateStatus(self, job_id, status):
         if job_id in self.results:
             self.results[job_id] = status
+
+            return self.results[job_id]
+        else:
+            return {'result': 'error', 'message': 'job not found'}
+    
+    def updateStatusMessage(self, job_id, statusName, message=None):
+        if job_id in self.results:
+            self.results[job_id]['status'] = statusName
+
+            if message:
+                self.results[job_id]['message'] = message
 
             return self.results[job_id]
         else:
@@ -69,155 +96,154 @@ class OCRThread (threading.Thread):
 
         print("Downloading model parameters")
         gdown.download(
-            'https://drive.google.com/uc?id=1MVjeBuTTO9prdnGBm1wyP_OV-LESwimk')
+            'https://drive.google.com/uc?id=1iPJ99JdU-CRYWm2iLuA7XoxX9H382YKr')
             
-
         os.system('mv craft_mlt_25k.pth im2pres/data/craft_mlt_25k.pth')
 
-        DETECTOR_FILENAME = 'im2pres/data/craft_mlt_25k.pth'
-
-        imgH = 64
-        input_channel = 1
-        output_channel = 512
-        hidden_size = 512
-
-        medicinePath =  'im2pres/data/main_dict/high_res_low_res.csv'
-
-        df = pd.read_csv(medicinePath, sep=';', quotechar="\"", header=0, dtype=str)
+        self.df = pd.read_csv(self.medicinePath, sep=';', quotechar="\"", header=0, dtype=str)
         #df_common_name = pd.read_json(commonNamePath, orient='records')
-        medicineClassifierData, medicineCorrectionData = readData(df)
+        self.medicineClassifierData, self.medicineCorrectionData = self.readData()
 
-        device = 'cpu'
+        self.device = 'cpu'
         if torch.cuda.is_available():
-              device = 'cuda'
+              self.device = 'cuda'
 
-        detector = get_detector(DETECTOR_FILENAME, device)
+        self.detector = get_detector(self.DETECTOR_FILENAME, self.device)
 
         while True:
-            process_data_session(self, self.q, detector, device, df, medicineClassifierData, medicineCorrectionData, imgH)
-            time.sleep(1)
+            self.process_data_session()
+            time.sleep(0.1)
 
         print("Exiting " + self.name)
 
-def process_data_session(thread_task, q, detector, device, df, medicineClassifierData, medicineCorrectionData, imgH):
-    data = None
+    def process_data_session(self):
+        data = None
 
-    queueLock.acquire()
-    if not q.empty():
-        data = q.get()
-    queueLock.release()
+        queueLock.acquire()
+        if not self.q.empty():
+            data = self.q.get()
+        queueLock.release()
 
-    if data:
-        print(f"{thread_task.name} processing {data}...")
-        # todo
-        job_id, filepath = data['job_id'], data['filepath']
+        if data:
+            print(f"{self.name} processing {data}...")
+            # todo
+            self.job_id, filepath = data['job_id'], data['filepath']
 
-        thread_task.updateStatus(job_id, {'status': 'ongoing', 'result': ''})
-        res = predict_task(detector, device, df, medicineClassifierData, medicineCorrectionData, imgH, filepath)
+            self.updateStatus(self.job_id, {'status': 'ongoing', 'result': ''})
+            res = self.predict_task(filepath)
 
-        if res:
-            thread_task.updateStatus(
-                job_id, {'status': 'completed', 'result': res})
+            if res:
+                self.updateStatus(
+                    self.job_id, {'status': 'completed', 'result': res})
 
-    time.sleep(1)
+        time.sleep(1)
 
-    return None
+        return None
 
-def predict_task(detector, device, df, medicineClassifierData, medicineCorrectionData, imgH, filepath):
-    
-    texts = readtext(detector, device, df, medicineClassifierData, medicineCorrectionData, imgH, filepath)
+    def predict_task(self, filepath):
+        
+        texts = self.readtext(filepath)
 
-    result = []
-    result.append(f"Result for image {os.path.basename(filepath)}:")
-    
-    if len(texts) > 0:
-        result.extend(texts)
-    else:
-        result.append("Not found medical data in your image!")
-    return result
+        result = []
+        result.append(f"Result for image {os.path.basename(filepath)}:")
+        
+        if len(texts) > 0:
+            result.extend(texts)
+        else:
+            result.append("Not found medical data in your image!")
+        return result
 
-def readData(df):
-    full_name = df[df.columns[0]].tolist()
-    contains = df[df.columns[2]].tolist()
+    def readData(self):
+        full_name = self.df[self.df.columns[0]].tolist()
+        contains = self.df[self.df.columns[2]].tolist()
 
-    singleName = [name.split() for name in full_name]
-    singleContain = [contain.split() for contain in contains]
+        singleName = [name.split() for name in full_name]
+        singleContain = [contain.split() for contain in contains]
 
-    singleName = [cleanName(item) for sublist in singleName for item in sublist]
-    singleContain = [cleanName(item) for sublist in singleContain for item in sublist]
+        singleName = [cleanName(item) for sublist in singleName for item in sublist]
+        singleContain = [cleanName(item) for sublist in singleContain for item in sublist]
 
-    full_name_process = [cleanName(name) for name in full_name]
+        full_name_process = [cleanName(name) for name in full_name]
 
-    return singleName + singleContain, full_name_process
+        return singleName + singleContain, full_name_process
 
-def findObj(df, name, data):
-    index = data.index(name)
-    return df.iloc[index].to_dict()
+    def findObj(self, name, data):
+        index = data.index(name)
+        return self.df.iloc[index].to_dict()
 
-def readtext(detector, device, df, medicineClassifierData, medicineCorrectionData, imgH, imagePath,\
-                min_size = 0, contrast_ths = 0.1, adjust_contrast = 0.5, filter_ths = 0.003,\
-                text_threshold = 0.7, low_text = 0.4, link_threshold = 0.4, canvas_size = 2560,\
-                mag_ratio = 1., slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5,\
-                width_ths = 0.5, add_margin = 0.1):
+    def readtext(self, imagePath,\
+                    min_size = 0, contrast_ths = 0.1, adjust_contrast = 0.5, filter_ths = 0.003,\
+                    text_threshold = 0.7, low_text = 0.4, link_threshold = 0.4, canvas_size = 2560,\
+                    mag_ratio = 1., slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5,\
+                    width_ths = 0.5, add_margin = 0.1):
 
-    img, img_cv_grey = reformat_input(imagePath)
+        self.updateStatusMessage(self.job_id, 'handle_output', 'Detecting...')
 
-    text_box = get_textbox(detector, img, canvas_size, mag_ratio,\
-                            text_threshold, link_threshold, low_text,\
-                            False, device)
-    
-    horizontal_list, free_list = group_text_box(text_box, slope_ths,\
-                                                ycenter_ths, height_ths,\
-                                                width_ths, add_margin)
+        img, img_cv_grey = reformat_input(imagePath)
 
-    if min_size:
-        horizontal_list = [i for i in horizontal_list if max(i[1]-i[0],i[3]-i[2]) > min_size]
-        free_list = [i for i in free_list if max(diff([c[0] for c in i]), diff([c[1] for c in i]))>min_size]
+        text_box = get_textbox(self.detector, img, canvas_size, mag_ratio,\
+                                text_threshold, link_threshold, low_text,\
+                                False, self.device)
+        
+        horizontal_list, free_list = group_text_box(text_box, slope_ths,\
+                                                    ycenter_ths, height_ths,\
+                                                    width_ths, add_margin)
 
-    
-    image_list, _ = get_image_list(horizontal_list, free_list, img_cv_grey, model_height = imgH)
+        if min_size:
+            horizontal_list = [i for i in horizontal_list if max(i[1]-i[0],i[3]-i[2]) > min_size]
+            free_list = [i for i in free_list if max(diff([c[0] for c in i]), diff([c[1] for c in i]))>min_size]
 
-    croped_images = map(lambda x: x[1], image_list)
+        self.updateStatusMessage(self.job_id, 'handle_output', 'Getting croped image list...')
+        image_list, _ = get_image_list(horizontal_list, free_list, img_cv_grey, model_height = self.imgH)
 
-    tesseractResultArr = []
+        croped_images = list(map(lambda x: x[1], image_list))
 
-    #medicineClassifierData các tên thuốc sẽ được tách ra thành các từ cefuroxim, 500mg, (efodyl 500mg)
-    #các dòng có sự xuất hiện của các từ này sẽ có khả năng cao là tên thuốc
-    #xoá các kí tự đặc biệt cho dict và input
-    
-    medicineClassifier = SpellCheck(medicineClassifierData)
+        tesseractResultArr = []
 
-    final_result = []
-    for item in croped_images:
-        isExist = False
-        tesseractResult = tesseract(item)
-        # print('tesseractResult ' + tesseractResult)
-        tesseractResult = cleanName(tesseractResult)
+        #medicineClassifierData các tên thuốc sẽ được tách ra thành các từ cefuroxim, 500mg, (efodyl 500mg)
+        #các dòng có sự xuất hiện của các từ này sẽ có khả năng cao là tên thuốc
+        #xoá các kí tự đặc biệt cho dict và input
+        
+        medicineClassifier = SpellCheck(self.medicineClassifierData)
 
-        tesseractResultArr.append(tesseractResult) 
+        self.updateStatusMessage(self.job_id, 'handle_output', 'Recognizing...')
 
-        #put each line in to check func 
-        # print(medicineClassifier.check(tesseractResult))
-        medicine_name, isMedicine = medicineClassifier.check(tesseractResult)
-        if isMedicine >= 50: #xét trường hợp tên thuốc == từ điển thì xuất ra ~ 100% matching => handle case này riêng
-            #check xem đây là tên thuốc nào, nếu check 0 ra tên thuốc thì hiển thị đây là thuốc nhưng chưa có trong db
+        final_result = []
+        count, total = 0, len(croped_images)
 
-            #nếu kết quả so khớp theo proccess và kết quả so kớp theo từ ~90% thì hiển thị ra tên, còn nếu không thì sẽ hiển thị warning và các option của hệ thống
-            #Check độ dài input, độ dài sửa theo từ, độ dài sửa theo dòng gần bằng nhau thì sẽ cho kết quả dạng option
-            correct = fuzzprocess.extract(cleanName(tesseractResult), medicineCorrectionData, limit=5, scorer=fuzz.token_set_ratio)
-            first_match, percent_match = correct[0]
-            
-            for previousResult in final_result:
-                for item in previousResult:
-                    if cleanName(item['line']) == first_match:
-                        isExist = True
+        for item in croped_images:
+            isExist = False
+            count += 1
+            self.updateStatusMessage(self.job_id, 'handle_output', f"Recognizing...{count}/{total}")
 
-            if isExist:
-                continue
+            tesseractResult = tesseract(item)
+            # print('tesseractResult ' + tesseractResult)
+            tesseractResult = cleanName(tesseractResult)
 
-            if percent_match >= 95:
-                    obj = findObj(df, first_match, medicineCorrectionData)
-                    print(obj)
-                    final_result.append([obj])
-    
-    return final_result
+            tesseractResultArr.append(tesseractResult) 
+
+            #put each line in to check func 
+            # print(medicineClassifier.check(tesseractResult))
+            medicine_name, isMedicine = medicineClassifier.check(tesseractResult)
+            if isMedicine >= 50: #xét trường hợp tên thuốc == từ điển thì xuất ra ~ 100% matching => handle case này riêng
+                #check xem đây là tên thuốc nào, nếu check 0 ra tên thuốc thì hiển thị đây là thuốc nhưng chưa có trong db
+
+                #nếu kết quả so khớp theo proccess và kết quả so kớp theo từ ~90% thì hiển thị ra tên, còn nếu không thì sẽ hiển thị warning và các option của hệ thống
+                #Check độ dài input, độ dài sửa theo từ, độ dài sửa theo dòng gần bằng nhau thì sẽ cho kết quả dạng option
+                correct = fuzzprocess.extract(cleanName(tesseractResult), self.medicineCorrectionData, limit=5, scorer=fuzz.token_set_ratio)
+                first_match, percent_match = correct[0]
+                
+                for previousResult in final_result:
+                    for item in previousResult:
+                        if cleanName(item['line']) == first_match:
+                            isExist = True
+
+                if isExist:
+                    continue
+
+                if percent_match >= 95:
+                        obj = self.findObj(first_match, self.medicineCorrectionData)
+                        print(obj)
+                        final_result.append([obj])
+        
+        return final_result
