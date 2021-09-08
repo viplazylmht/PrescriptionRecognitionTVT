@@ -12,9 +12,10 @@ import gdown
 import threading
 import hashlib
 
-import fuzzywuzzy
+from fuzzywuzzy import fuzz, process as fuzzprocess
 import pandas as pd
 import torch
+import queue
 
 queueLock = threading.Lock()
 
@@ -84,7 +85,7 @@ class OCRThread (threading.Thread):
 
         df = pd.read_csv(medicinePath, sep=';', quotechar="\"", header=0, dtype=str)
         #df_common_name = pd.read_json(commonNamePath, orient='records')
-        medicineClassifierData, medicineCorrectionData = readData()
+        medicineClassifierData, medicineCorrectionData = readData(df)
 
         device = 'cpu'
         if torch.cuda.is_available():
@@ -203,7 +204,7 @@ def readtext(detector, device, df, medicineClassifierData, medicineCorrectionDat
 
             #nếu kết quả so khớp theo proccess và kết quả so kớp theo từ ~90% thì hiển thị ra tên, còn nếu không thì sẽ hiển thị warning và các option của hệ thống
             #Check độ dài input, độ dài sửa theo từ, độ dài sửa theo dòng gần bằng nhau thì sẽ cho kết quả dạng option
-            correct = fuzzywuzzy.process.extract(cleanName(tesseractResult), medicineCorrectionData, limit=5, scorer=fuzzywuzzy.fuzz.token_set_ratio)
+            correct = fuzzprocess.extract(cleanName(tesseractResult), medicineCorrectionData, limit=5, scorer=fuzz.token_set_ratio)
             first_match, percent_match = correct[0]
             
             for previousResult in final_result:

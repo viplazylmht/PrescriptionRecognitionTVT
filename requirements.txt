@@ -8,8 +8,12 @@ markupsafe
 itsdangerous
 flask_cors
 werkzeug
-torchvision
-torch
+torch==1.6.0
+torchvision==0.7.0
 pandas
 fuzzywuzzy
-PIL
+Pillow
+opencv-python-headless==4.2.0.32
+scikit-image
+pytesseract
+tesseract-ocr

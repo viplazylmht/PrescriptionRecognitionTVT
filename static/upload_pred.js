@@ -4,6 +4,10 @@ const mess_area = document.getElementById('mess_area');
 
 let auto_reload;
 
+function getFirstItem(arr) {
+    return arr[0]
+}
+
 const reload_result = async (job_id) => {
     const res = await fetch("/api/v1/results/" + job_id,
         {
@@ -13,18 +17,15 @@ const reload_result = async (job_id) => {
         }).then(result => {
             console.log(result);
 
-
             if (result.status === 'completed') {
                 clearInterval(auto_reload);
 
                 mess.textContent = 'Job completed!';
 
-                let s = '<p class="text-white">' + result.result[0] + "</p>";
-
-                for (let i = 1; i < 4; i++) {
-                    line = result.result[i][i - 1]
-                    s += '<p class="text-white">' + i + ". " + line[0] + "</p>";
-                }
+                let s = '<p class="text-white">' + result.result[0] + "</br>";
+                haha = result;
+                s += haha.result.slice(1).map(getFirstItem).map(JSON.stringify).join("</br></br>").replaceAll("\\n", "</br>")
+                s += "</p>";
 
                 mess_area.innerHTML = s;
             }

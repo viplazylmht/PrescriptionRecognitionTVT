@@ -7,11 +7,11 @@ from PIL import Image
 import hashlib
 import sys, os
 
-from imgproc import loadImage
+from im2pres.imgproc import loadImage
 import re
 
 # from spell import spell_check_single_word, create_dictionary
-from spellcheck import SpellCheck
+from im2pres.spellcheck import SpellCheck
 import pytesseract
 
 if sys.version_info[0] == 2:
