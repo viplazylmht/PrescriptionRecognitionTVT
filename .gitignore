@@ -4,3 +4,4 @@ static/UPLOAD/*
 **/__pycache__
 craft_mlt_25k.pth
 output.txt
+tmp/*

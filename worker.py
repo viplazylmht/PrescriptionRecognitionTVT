@@ -41,6 +41,7 @@ class OCRThread (threading.Thread):
 
         self.df = None
         self.medicineClassifierData, self.medicineCorrectionData = None, None
+        self.medicineClassifier = None
 
         self.results = {}
 
@@ -103,6 +104,12 @@ class OCRThread (threading.Thread):
         self.df = pd.read_csv(self.medicinePath, sep=';', quotechar="\"", header=0, dtype=str)
         #df_common_name = pd.read_json(commonNamePath, orient='records')
         self.medicineClassifierData, self.medicineCorrectionData = self.readData()
+
+        #medicineClassifierData các tên thuốc sẽ được tách ra thành các từ cefuroxim, 500mg, (efodyl 500mg)
+        #các dòng có sự xuất hiện của các từ này sẽ có khả năng cao là tên thuốc
+        #xoá các kí tự đặc biệt cho dict và input
+        
+        self.medicineClassifier = SpellCheck(self.medicineClassifierData)
 
         self.device = 'cpu'
         if torch.cuda.is_available():
@@ -200,12 +207,6 @@ class OCRThread (threading.Thread):
 
         tesseractResultArr = []
 
-        #medicineClassifierData các tên thuốc sẽ được tách ra thành các từ cefuroxim, 500mg, (efodyl 500mg)
-        #các dòng có sự xuất hiện của các từ này sẽ có khả năng cao là tên thuốc
-        #xoá các kí tự đặc biệt cho dict và input
-        
-        medicineClassifier = SpellCheck(self.medicineClassifierData)
-
         self.updateStatusMessage(self.job_id, 'handle_output', 'Recognizing...')
 
         final_result = []
@@ -222,9 +223,18 @@ class OCRThread (threading.Thread):
 
             tesseractResultArr.append(tesseractResult) 
 
+        # remove duplicates and filtered any line with len < 3 (there is no idea to deal w/ this pres name, 3 is optional)
+        fixedTessResults = list(filter(lambda x: len(x) > 3, set(tesseractResultArr)))
+        
+        count, total = 0, len(fixedTessResults)
+        for tesseractResult in fixedTessResults:
+            
+            count += 1
+            self.updateStatusMessage(self.job_id, 'handle_output', f"Processing...{count}/{total}")
+
             #put each line in to check func 
             # print(medicineClassifier.check(tesseractResult))
-            medicine_name, isMedicine = medicineClassifier.check(tesseractResult)
+            medicine_name, isMedicine = self.medicineClassifier.check(tesseractResult)
             if isMedicine >= 50: #xét trường hợp tên thuốc == từ điển thì xuất ra ~ 100% matching => handle case này riêng
                 #check xem đây là tên thuốc nào, nếu check 0 ra tên thuốc thì hiển thị đây là thuốc nhưng chưa có trong db
 
@@ -246,4 +256,7 @@ class OCRThread (threading.Thread):
                         print(obj)
                         final_result.append([obj])
         
+        with open(f"tmp/{self.job_id}.tesslog", 'wt') as f:
+            f.write("\n".join(fixedTessResults))
+
         return final_result
