@@ -37,7 +37,7 @@ class OCRThread (threading.Thread):
         self.output_channel = 512
         self.hidden_size = 512
 
-        self.medicinePath =  'im2pres/data/main_dict/high_res_low_res.csv'
+        self.medicinePath =  'im2pres/data/main_dict/drugbank_data.csv'
 
         self.df = None
         self.medicineClassifierData, self.medicineCorrectionData = None, None
@@ -101,7 +101,7 @@ class OCRThread (threading.Thread):
             
         os.system('mv craft_mlt_25k.pth im2pres/data/craft_mlt_25k.pth')
 
-        self.df = pd.read_csv(self.medicinePath, sep=';', quotechar="\"", header=0, dtype=str)
+        self.df = pd.read_csv(self.medicinePath, quotechar="\"", header=0, dtype=str)
         #df_common_name = pd.read_json(commonNamePath, orient='records')
         self.medicineClassifierData, self.medicineCorrectionData = self.readData()
 
