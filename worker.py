@@ -6,11 +6,14 @@ from im2pres.detection import get_detector, get_textbox
 from im2pres.utils import group_text_box, get_image_list, diff, reformat_input, tesseract, cleanName
 from im2pres.spellcheck import SpellCheck
 
-import time
+from bson.json_util import dumps, loads
+
+import time, timeit
 import os
 import gdown
 import threading
 import hashlib
+import requests
 
 from fuzzywuzzy import fuzz, process as fuzzprocess
 import pandas as pd
@@ -31,6 +34,7 @@ class OCRThread (threading.Thread):
         self.detector = None
 
         self.DETECTOR_FILENAME = 'im2pres/data/craft_mlt_25k.pth'
+        self.db_url = 'https://PresMongoDB.viplazy.repl.co/api/v2/search'
 
         self.imgH = 64
         self.input_channel = 1
@@ -226,35 +230,21 @@ class OCRThread (threading.Thread):
         # remove duplicates and filtered any line with len < 3 (there is no idea to deal w/ this pres name, 3 is optional)
         fixedTessResults = list(filter(lambda x: len(x) > 3, set(tesseractResultArr)))
         
-        count, total = 0, len(fixedTessResults)
-        for tesseractResult in fixedTessResults:
-            
-            count += 1
-            self.updateStatusMessage(self.job_id, 'handle_output', f"Processing...{count}/{total}")
+        self.updateStatusMessage(self.job_id, 'handle_output', f"POST-Processing...")
 
-            #put each line in to check func 
-            # print(medicineClassifier.check(tesseractResult))
-            medicine_name, isMedicine = self.medicineClassifier.check(tesseractResult)
-            if isMedicine >= 50: #xét trường hợp tên thuốc == từ điển thì xuất ra ~ 100% matching => handle case này riêng
-                #check xem đây là tên thuốc nào, nếu check 0 ra tên thuốc thì hiển thị đây là thuốc nhưng chưa có trong db
+        headers = {"S-Token": "presmongo", "extra_spell_check": "true"}
 
-                #nếu kết quả so khớp theo proccess và kết quả so kớp theo từ ~90% thì hiển thị ra tên, còn nếu không thì sẽ hiển thị warning và các option của hệ thống
-                #Check độ dài input, độ dài sửa theo từ, độ dài sửa theo dòng gần bằng nhau thì sẽ cho kết quả dạng option
-                correct = fuzzprocess.extract(cleanName(tesseractResult), self.medicineCorrectionData, limit=5, scorer=fuzz.token_set_ratio)
-                first_match, percent_match = correct[0]
-                
-                for previousResult in final_result:
-                    for item in previousResult:
-                        if cleanName(item['line']) == first_match:
-                            isExist = True
+        start = timeit.default_timer()
+        resp = requests.post(self.db_url, json=fixedTessResults, headers=headers)
+        stop = timeit.default_timer()
 
-                if isExist:
-                    continue
+        rdata = loads(resp.text)
+        print(rdata)
 
-                if percent_match >= 95:
-                        obj = self.findObj(first_match, self.medicineCorrectionData)
-                        print(obj)
-                        final_result.append([obj])
+        for k, v in rdata.items():
+            final_result.append([ {k :v[1:]},])
+
+        print('LOG: db request time: ', stop - start)
         
         with open(f"tmp/{self.job_id}.tesslog", 'wt') as f:
             f.write("\n".join(fixedTessResults))

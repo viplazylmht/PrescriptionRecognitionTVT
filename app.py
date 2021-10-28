@@ -6,6 +6,8 @@ import subprocess
 
 from werkzeug.utils import secure_filename
 
+from bson.json_util import dumps, loads
+
 from worker import OCRThread
 
 UPLOAD_FOLDER = 'static/UPLOAD'
@@ -46,12 +48,12 @@ def captionme():
     print('log captionme')
 
     if 'file' not in request.files:
-        return json.dumps({'error': "File not found"}), 406
+        return dumps({'error': "File not found"}), 406
     file = request.files['file']
     # If the user does not select a file, the browser submits an
     # empty file without a filename.
     if file.filename == '':
-        return json.dumps({'error': "File not found"}), 406
+        return dumps({'error': "File not found"}), 406
     if file and allowed_file(file.filename):
 
         filename = secure_filename(file.filename)
@@ -61,16 +63,16 @@ def captionme():
             # client have trick on file extension, reject
             os.system(f"rm {UPLOAD_FOLDER}/{filename}")
             print("file checker not pass, rejecting...")
-            return json.dumps({'error': "File empty or not allowed"}), 406
+            return dumps({'error': "File empty or not allowed"}), 406
     
         job_id = thread_task.pushJob(f"{UPLOAD_FOLDER}/{filename}")
 
         print(job_id)
 
         res = {'job_id': job_id}
-        return json.dumps({"result": res})
+        return dumps({"result": res})
     else:
-        return json.dumps({'error': "File not found or not acceptable"}), 406
+        return dumps({'error': "File not found or not acceptable"}), 406
 
 
 @app.route("/api/v1/results/<job_key>", methods=['GET'])
@@ -81,9 +83,9 @@ def get_results(job_key):
     print(job)
 
     if job['status'] == 'completed':
-        return json.dumps(job), 200
+        return dumps(job), 200
     else:
-        return json.dumps(job), 202
+        return dumps(job), 202
 
 
 @app.route("/cleanmee", methods=['GET', 'POST'])
@@ -111,7 +113,7 @@ def cleanmee():
         else:
             res = {'message': "Why you send me nothing?"}
 
-    return json.dumps(res)
+    return dumps(res)
 
 def run():
 
