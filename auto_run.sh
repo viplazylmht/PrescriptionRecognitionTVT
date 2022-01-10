@@ -4,11 +4,9 @@ install-pkg 2>&1 > /dev/null
 if [[ $? -eq 0 ]]
 then
   echo "Replit env detected!"
-  install-pkg libpq-dev tesseract-ocr
-  export TESSDATA_PREFIX="./im2pres/data"
+  install-pkg libpq-dev libgl1-mesa-glx
 else
-  sudo apt install libpq-dev tesseract-ocr
-  sudo -E export TESSDATA_PREFIX="./im2pres/data"
+  sudo apt install -y libpq-dev libgl1-mesa-glx
 fi
 
 pip install -r requirements.txt --no-cache-dir

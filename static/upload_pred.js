@@ -24,7 +24,8 @@ const reload_result = async (job_id) => {
 
                 let s = '<p class="text-white">' + result.result[0] + "</br>";
                 haha = result;
-                s += haha.result.slice(1).map(getFirstItem).map(JSON.stringify).join("</br></br>").replaceAll("\\n", "</br>")
+//                s += haha.result.slice(1).map(getFirstItem).map(JSON.stringify).join("</br></br>").replaceAll("\\n", "</br>")
+                s += haha.result.slice(1).map(JSON.stringify).join("</br></br>").replaceAll("\\n", "</br>")
                 s += "</p>";
 
                 mess_area.innerHTML = s;
